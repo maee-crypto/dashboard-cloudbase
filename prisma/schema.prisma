@@ -1,0 +1,104 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String  @map("user_id")
+  type              String
+  provider          String
+  providerAccountId String  @map("provider_account_id")
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+  user              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@map("accounts")
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique @map("session_token")
+  userId       String   @map("user_id")
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("sessions")
+}
+
+model User {
+  id            String    @id @default(cuid())
+  name          String?
+  email         String?   @unique
+  emailVerified DateTime? @map("email_verified")
+  image         String?
+  role          String    @default("viewer")
+  accounts      Account[]
+  sessions      Session[]
+
+  @@map("users")
+}
+
+model VerificationToken {
+  identifier String
+  token      String
+  expires    DateTime
+
+  @@unique([identifier, token])
+  @@map("verificationtokens")
+}
+
+model TokenAddress {
+  id          String          @id @default(cuid())
+  name        String
+  address     String
+  chainId     String
+  isEnabled   Boolean         @default(true)
+  description String?
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+  wallets     WalletAddress[] @relation("TokenAllowances")
+
+  @@map("token_addresses")
+}
+
+model WalletAddress {
+  id            String         @id @default(cuid())
+  address       String
+  chainId       String
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  allowedTokens TokenAddress[] @relation("TokenAllowances")
+  
+  // New JSON fields for execution status and token balances
+  executionStatus Json?         @default("{}")
+  tokenBalances   Json?         @default("{}")
+
+  @@unique([address, chainId])
+  @@map("wallet_addresses")
+}
+
+model ApiToken {
+  id          String    @id @default(cuid())
+  name        String
+  token       String    @unique
+  expiresAt   DateTime
+  lastUsed    DateTime?
+  isRevoked   Boolean   @default(false)
+  createdBy   String
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  description String?
+
+  @@map("api_tokens")
+}
