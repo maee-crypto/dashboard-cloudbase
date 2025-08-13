@@ -1,12 +1,24 @@
 import { getToken } from "next-auth/jwt";
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
-import { jwtMiddleware } from './middleware/jwt-auth';
+import { jwtMiddleware, addCorsHeaders } from './middleware/jwt-auth';
 
 export async function middleware(req: NextRequest) {
     // For JWT-protected API routes
     if (req.nextUrl.pathname.startsWith('/api/operations/extension/')) {
       return jwtMiddleware(req);
+    }
+    
+    // For all other API routes, add CORS headers
+    if (req.nextUrl.pathname.startsWith('/api/')) {
+      // Handle preflight CORS requests
+      if (req.method === 'OPTIONS') {
+        return addCorsHeaders(new NextResponse(null, { status: 204 }), '*');
+      }
+      
+      // For actual requests, continue and add CORS headers to the response
+      const response = NextResponse.next();
+      return addCorsHeaders(response, '*');
     }
     
   // For NextAuth protected dashboard routes
@@ -33,6 +45,6 @@ export const config = {
   matcher: [
     "/dashboard/:path*", 
     "/",
-    '/api/operations/extension/:path*'
+    '/api/:path*'
   ],
 };

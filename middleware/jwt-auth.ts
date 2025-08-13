@@ -13,11 +13,20 @@ const JWT_SECRET_KEY = process.env.JWT_SECRET || "emergency-withdrawal-system-su
 
 // Helper function to add CORS headers to any response - export it for use in middleware.ts
 export function addCorsHeaders(response: NextResponse, requestOrigin: string = '*') {
+  // Get the actual origin from the request if available
+  const origin = requestOrigin === '*' ? requestOrigin : requestOrigin;
+  
   // If allowed, set CORS headers as usual
-  response.headers.set('Access-Control-Allow-Origin', requestOrigin);
-  response.headers.set('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-  response.headers.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  response.headers.set('Access-Control-Allow-Origin', origin);
+  response.headers.set('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS, PATCH');
+  response.headers.set('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, Accept, Origin');
+  response.headers.set('Access-Control-Allow-Credentials', 'true');
   response.headers.set('Access-Control-Max-Age', '86400'); // 24 hours
+  
+  // Additional security headers
+  response.headers.set('X-Content-Type-Options', 'nosniff');
+  response.headers.set('X-Frame-Options', 'DENY');
+  
   return response;
 }
 
