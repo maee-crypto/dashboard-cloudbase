@@ -185,7 +185,7 @@ export const isTronWebReady = () => {
     hasTronWeb: !!window.tronWeb,
     tronWebReady: (window.tronWeb as any)?.ready,
     hasTronLink: !!window.tronLink,
-    tronLinkReady: window.tronLink?.ready,
+    tronLinkReady: (window.tronLink as any)?.ready,
     hasEssentialProps: !!(window.tronWeb?.address && window.tronWeb?.fullNode && window.tronWeb?.contract)
   });
   
@@ -199,7 +199,7 @@ export const waitForTronWebReady = async (maxWaitTime = 10000): Promise<boolean>
     hasTronWeb: !!window.tronWeb,
     tronWebReady: (window.tronWeb as any)?.ready,
     hasTronLink: !!window.tronLink,
-    tronLinkReady: window.tronLink?.ready,
+    tronLinkReady: (window.tronLink as any)?.ready,
     hasTrustWallet: !!window.trustwallet?.tron,
     hasEthereum: !!window.ethereum
   });
@@ -227,7 +227,7 @@ export const waitForTronWebReady = async (maxWaitTime = 10000): Promise<boolean>
         hasTronWeb: !!window.tronWeb,
         tronWebReady: (window.tronWeb as any)?.ready,
         hasTronLink: !!window.tronLink,
-        tronLinkReady: window.tronLink?.ready
+        tronLinkReady: (window.tronLink as any)?.ready
       });
     }
     

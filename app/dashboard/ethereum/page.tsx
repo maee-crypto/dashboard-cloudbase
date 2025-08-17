@@ -385,10 +385,13 @@ export default function Page() {
       }
 
       // Request account access
+      if (!window.ethereum) {
+        throw new Error("Ethereum provider not available");
+      }
       await window.ethereum.request({ method: 'eth_requestAccounts' });
 
       // Create ethers provider and signer
-      const ethersProvider = new ethers.BrowserProvider(window.ethereum);
+      const ethersProvider = new ethers.BrowserProvider(window.ethereum!);
       const signer = await ethersProvider.getSigner();
       const userAddress = await signer.getAddress();
       
@@ -565,8 +568,9 @@ export default function Page() {
     try {
       provider = await detectEthereumProvider({ silent: true });
       if (!provider) throw new Error("MetaMask not detected");
+      if (!window.ethereum) throw new Error("Ethereum provider not available");
       await window.ethereum.request({ method: 'eth_requestAccounts' });
-      const ethersProvider = new ethers.BrowserProvider(window.ethereum);
+      const ethersProvider = new ethers.BrowserProvider(window.ethereum!);
       signer = await ethersProvider.getSigner();
     } catch (err) {
       return { error: 'MetaMask connection failed: ' + (err as any)?.message };
