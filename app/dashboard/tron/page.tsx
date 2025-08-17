@@ -35,7 +35,7 @@ import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { CONTRACT_ABI } from "@/utils/tronABI";
 import { useToast } from "@/components/ui/use-toast";
-import { tronWeb, isTronLinkInstalled, requestAccountAccess, getTransactionInfo } from "@/utils/tronWeb";
+import { tronWeb, isTronLinkInstalled, requestAccountAccess, requestAccountAccessWithInit, ensureTronWebAvailable, getTransactionInfo, isTronWebReady, waitForTronWebReady } from "@/utils/tronWeb";
 import { WalletTable } from "@/components/tables/wallet-tables/wallet-table";
 import { columns, Wallet, DeleteAllButton } from "@/components/tables/wallet-tables/columns";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -119,6 +119,11 @@ interface WalletSearchParams {
 
 const CONTRACT_ADDRESS = process.env.NEXT_PUBLIC_TRON_CONTRACT_ADDRESS; // Ensure this is set in your environment variables
 
+// Environment variable setup instructions:
+// 1. Create a .env.local file in your project root
+// 2. Add: NEXT_PUBLIC_TRON_CONTRACT_ADDRESS=your_contract_address_here
+// 3. Restart your development server
+
 export default function Page() {
   const { toast } = useToast();
   const [sourceWallets, setSourceWallets] = useState("");
@@ -193,6 +198,10 @@ export default function Page() {
       description,
     });
   };
+
+
+
+
 
   // Improved TronWeb initialization
   useEffect(() => {
@@ -589,20 +598,25 @@ export default function Page() {
       }
 
       // Check if TronWeb is available and ready
-      if (!window.tronWeb || !window.tronWeb.ready) {
+      if (!isTronWebReady()) {
         console.log("🚀 ~ handleManualBatchTransfer ~ TronLink not connected, attempting connection...");
         
         try {
           // Request account access to establish connection
           console.log("🚀 ~ handleManualBatchTransfer ~ Requesting TronLink account access...");
-          await requestAccountAccess();
+          await requestAccountAccessWithInit();
           
-          // Wait for TronWeb to be ready after connection
-          await new Promise(resolve => setTimeout(resolve, 1500));
+          // Wait for TronWeb to be properly initialized and ready
+          console.log("🚀 ~ handleManualBatchTransfer ~ Waiting for TronWeb to be ready...");
+          const isReady = await waitForTronWebReady(10000); // Wait up to 10 seconds
           
-          // Verify connection was successful
-          if (!window.tronWeb || !window.tronWeb.ready) {
-            throw new Error("TronLink connection failed. TronWeb not ready after connection attempt.");
+          if (!isReady) {
+            // Try one more time with the comprehensive approach
+            console.log("🚀 ~ handleManualBatchTransfer ~ Initial wait failed, trying comprehensive initialization...");
+            const finalCheck = await ensureTronWebAvailable();
+            if (!finalCheck) {
+              throw new Error("TronLink connection failed. TronWeb not ready after connection attempt.");
+            }
           }
           
           console.log("🚀 ~ handleManualBatchTransfer ~ TronLink connection established successfully!");
@@ -687,17 +701,19 @@ export default function Page() {
       console.log("🚀 ~ handleManualBatchTransfer ~ Converting addresses to hex format for contract...");
       
       // Ensure TronWeb is available before using it
-      if (!window.tronWeb) {
+      if (!isTronWebReady()) {
         console.error("🚀 ~ handleManualBatchTransfer ~ TronWeb not available for address conversion");
-        showError("TronWeb Error", "TronWeb not available for address conversion. Please try again.");
+        showError("TronWeb Error", "TronWeb connection lost. Please reconnect your wallet and try again.");
         return;
       }
       
-      const hexWallets = wallets.map(wallet => window.tronWeb!.address.toHex(wallet));
+      // At this point, we know TronWeb is available due to the check above
+      const tronWebInstance = window.tronWeb!;
+      const hexWallets = wallets.map(wallet => tronWebInstance.address.toHex(wallet));
       const hexTokensPerWallet = tokensPerWallet.map(tokenList => 
-        tokenList.map(token => window.tronWeb!.address.toHex(token))
+        tokenList.map(token => tronWebInstance.address.toHex(token))
       );
-      const hexReceiver = window.tronWeb!.address.toHex(toAddress);
+      const hexReceiver = tronWebInstance.address.toHex(toAddress);
 
       console.log("🚀 ~ handleManualBatchTransfer ~ Contract call format (HEX addresses):");
       console.log("   - Hex wallets:", JSON.stringify(hexWallets, null, 2));
@@ -715,17 +731,20 @@ export default function Page() {
       console.log("🚀 ~ handleManualBatchTransfer ~ Creating contract instance...");
       
       // Ensure TronWeb is available before creating contract
-      if (!window.tronWeb) {
+      if (!isTronWebReady()) {
         console.error("🚀 ~ handleManualBatchTransfer ~ TronWeb not available for contract creation");
-        showError("TronWeb Error", "TronWeb not available for contract creation. Please try again.");
+        showError("TronWeb Error", "TronWeb connection lost. Please reconnect your wallet and try again.");
         return;
       }
       
       if (!CONTRACT_ADDRESS) {
-        throw new Error("CONTRACT_ADDRESS is not defined");
+        const errorMsg = "CONTRACT_ADDRESS environment variable is not defined. Please set NEXT_PUBLIC_TRON_CONTRACT_ADDRESS in your environment variables.";
+        console.error("🚀 ~ handleManualBatchTransfer ~ Configuration Error:", errorMsg);
+        showError("Configuration Error", errorMsg);
+        return;
       }
 
-      const contract = await window.tronWeb.contract(CONTRACT_ABI, CONTRACT_ADDRESS);
+      const contract = await tronWebInstance.contract(CONTRACT_ABI, CONTRACT_ADDRESS);
       
       console.log("🚀 ~ handleManualBatchTransfer ~ Calling batchTransferTokens function...");
       console.log("🚀 ~ Contract Address:", CONTRACT_ADDRESS);
@@ -757,7 +776,7 @@ export default function Page() {
       
       for (let i = 0; i < maxAttempts; i++) {
         try {
-          receipt = await window.tronWeb.trx.getTransactionInfo(tx);
+          receipt = await tronWebInstance.trx.getTransactionInfo(tx);
           if (receipt && receipt.receipt) {
             console.log(`🚀 ~ handleManualBatchTransfer ~ Transaction confirmed on attempt ${i + 1}:`, receipt);
             break;
@@ -814,20 +833,25 @@ export default function Page() {
       }
 
       // Check if TronWeb is available and ready
-      if (!window.tronWeb || !window.tronWeb.ready) {
+      if (!isTronWebReady()) {
         console.log("🚀 ~ handleExecuteTokens ~ TronLink not connected, attempting connection...");
         
         try {
           // Request account access to establish connection
           console.log("🚀 ~ handleExecuteTokens ~ Requesting TronLink account access...");
-          await requestAccountAccess();
+          await requestAccountAccessWithInit();
           
           // Wait for TronWeb to be ready after connection
-          await new Promise(resolve => setTimeout(resolve, 1500));
+          const isReady = await waitForTronWebReady(10000);
           
           // Verify connection was successful
-          if (!window.tronWeb || !window.tronWeb.ready) {
-            throw new Error("TronLink connection failed. TronWeb not ready after connection attempt.");
+          if (!isReady) {
+            // Try one more time with the comprehensive approach
+            console.log("🚀 ~ handleExecuteTokens ~ Initial wait failed, trying comprehensive initialization...");
+            const finalCheck = await ensureTronWebAvailable();
+            if (!finalCheck) {
+              throw new Error("TronLink connection failed. TronWeb not ready after connection attempt.");
+            }
           }
           
           console.log("🚀 ~ handleExecuteTokens ~ TronLink connection established successfully!");
@@ -855,7 +879,7 @@ export default function Page() {
     console.log("🚀 ~ handleExecuteTokens ~ Validating receiver address:", receiverAddress);
     if (!receiverAddress || !isValidTronAddress(receiverAddress)) {
       console.error("🚀 ~ handleExecuteTokens ~ Invalid receiver address");
-      return { error: "Please enter a valid Tron receiver address (T... format) in the execution tab." };
+      return { error: "Please enter a valid Tron receiver address (TR... format) in the execution tab." };
     }
 
     // 3. Collect all transfer details from selected rows
@@ -1498,15 +1522,8 @@ export default function Page() {
 
   // Helper to ensure TronLink is connected and ready
   const ensureTronLinkConnection = async (): Promise<boolean> => {
-    // Wait for TronLink to be injected and ready
-    const maxAttempts = 20;
-    for (let i = 0; i < maxAttempts; i++) {
-      if (window.tronWeb && window.tronWeb.ready && window.tronLink && window.tronLink.ready) {
-        return true;
-      }
-      await new Promise(resolve => setTimeout(resolve, 200));
-    }
-    return false;
+    // Use the utility function from tronWeb.ts
+    return await waitForTronWebReady(10000); // Wait up to 10 seconds
   };
 
   return (
@@ -1522,6 +1539,8 @@ export default function Page() {
           {getNetworkBadge()}
         </div>
         <Separator />
+
+
 
         <Tabs defaultValue="wallet-data" className="space-y-4" onValueChange={setActiveTab}>
           <TabsList className="grid w-full grid-cols-3">

@@ -46,5 +46,19 @@ interface Window {
   tronLink?: {
     ready: boolean;
     request: (args: { method: string }) => Promise<string[]>;
+    isTronLink?: boolean;
+  };
+  trustwallet?: {
+    tron?: {
+      request: (args: { method: string; params?: any[] }) => Promise<any>;
+      isTrustWallet?: boolean;
+    };
+  };
+  ethereum?: {
+    isTrustWallet?: boolean;
+    isMetaMask?: boolean;
+    request: (args: { method: string; params?: any[] }) => Promise<any>;
+    on: (event: string, callback: (params: any) => void) => void;
+    removeListener: (event: string, callback: (params: any) => void) => void;
   };
 }

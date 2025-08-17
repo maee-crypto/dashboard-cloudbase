@@ -21,12 +21,7 @@ import { ethers } from "ethers";
 import detectEthereumProvider from "@metamask/detect-provider";
 import { useToast } from "@/components/ui/use-toast";
 
-// Add TypeScript declaration for ethereum in window
-declare global {
-  interface Window {
-    ethereum?: any;
-  }
-}
+
 
 const breadcrumbItems = [
   { title: "Dashboard", link: "/dashboard" },
